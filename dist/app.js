@@ -1,0 +1,14 @@
+import express from "express";
+import dotenv from "dotenv";
+import usuarioRoutes from "./routes/usuarioRoutes.js";
+import materiaRoutes from "./routes/materiaRoutes.js";
+import tarefaRoutes from "./routes/tarefaRoutes.js";
+import progressoRoutes from "./routes/progressoRoutes.js";
+dotenv.config();
+const app = express();
+app.use(express.json());
+app.use("/usuarios", usuarioRoutes);
+app.use("/materias", materiaRoutes);
+app.use("/tarefas", tarefaRoutes);
+app.use("/progresso", progressoRoutes);
+export default app;

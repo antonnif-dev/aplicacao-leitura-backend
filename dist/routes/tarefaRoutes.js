@@ -1,0 +1,10 @@
+import { Router } from "express";
+import TarefaController from "../controllers/tarefaController.js";
+const router = Router();
+router.get("/", TarefaController.listarTarefas);
+router.get("/:id", TarefaController.buscarPorId);
+router.get("/materia/:materiaId", TarefaController.listarPorMateria);
+router.post("/", TarefaController.criarTarefa);
+router.put("/:id", TarefaController.atualizarTarefa);
+router.delete("/:id", TarefaController.deletarTarefa);
+export default router;

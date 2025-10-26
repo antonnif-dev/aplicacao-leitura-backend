@@ -1,0 +1,15 @@
+import { Router } from "express";
+import { ProgressoController } from "../controllers/progressoController.js";
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+
+const progressoRoutes = Router();
+const progressoController = new ProgressoController();
+progressoRoutes.use(authMiddleware);
+progressoRoutes.get("/", progressoController.listarProgressoGeral);
+progressoRoutes.get("/tarefa/:tarefaId", progressoController.listarProgressoPorTarefa);
+progressoRoutes.get("/:id", progressoController.buscarProgressoPorId);
+progressoRoutes.post("/", progressoController.criarRegistroProgresso);
+progressoRoutes.delete("/:id", progressoController.deletarRegistroProgresso);
+
+
+export default progressoRoutes;
