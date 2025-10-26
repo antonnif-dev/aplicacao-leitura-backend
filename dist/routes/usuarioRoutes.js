@@ -1,9 +1,13 @@
-import { Router } from "express";
-import UsuarioController from "../controllers/usuarioController.js";
-const router = Router();
-router.get("/", UsuarioController.listarUsuarios);
-router.get("/:id", UsuarioController.buscarPorId);
-router.post("/", UsuarioController.criarUsuario);
-router.put("/:id", UsuarioController.atualizarUsuario);
-router.delete("/:id", UsuarioController.deletarUsuario);
-export default router;
+import { Router } from 'express';
+import { UsuarioController } from '../controllers/usuarioController.js'; // Verifique a extensão .js
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+const usuarioRoutes = Router();
+const usuarioController = new UsuarioController();
+usuarioRoutes.post('/', usuarioController.criarUsuario);
+usuarioRoutes.post('/login', usuarioController.loginUsuario);
+usuarioRoutes.get("/", usuarioController.listarUsuarios);
+usuarioRoutes.get("/:id", usuarioController.buscarPorId);
+usuarioRoutes.put("/:id", usuarioController.atualizarUsuario);
+usuarioRoutes.delete("/:id", usuarioController.deletarUsuario);
+usuarioRoutes.put('/', authMiddleware, usuarioController.atualizarUsuario);
+export default usuarioRoutes;

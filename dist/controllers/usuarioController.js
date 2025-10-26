@@ -1,62 +1,119 @@
-import { supabase } from "../supabaseClient.js";
-class UsuarioController {
-    static async listarUsuarios(req, res) {
-        const { data, error } = await supabase
-            .from("usuarios")
-            .select("*");
-        if (error) {
-            return res.status(500).json({ error: error.message });
+import { getSupabaseClient } from '../config/supabase.js';
+const JWT_SECRET = "seuSegredoAqui";
+export class UsuarioController {
+    async criarUsuario(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const { nome, email, senha } = req.body;
+            if (!nome || !email || !senha) {
+                return res.status(400).json({ error: "Preencha todos os campos." });
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ error: "E-mail inválido." });
+            }
+            const senhaRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}\[\]:;<>,.?~\\-]).{7,}$/;
+            if (!senhaRegex.test(senha)) {
+                return res.status(400).json({
+                    error: "A senha deve ter no mínimo 7 caracteres, uma letra maiúscula, um número e um símbolo.",
+                });
+            }
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password: senha,
+                options: {
+                    data: {
+                        nome_completo: nome
+                    }
+                }
+            });
+            if (error)
+                throw error;
+            return res.status(201).json({ message: "Usuário registrado com sucesso", data });
         }
-        const usuarios = data;
-        res.status(200).json(data);
-    }
-    static async buscarPorId(req, res) {
-        const id = Number(req.params.id);
-        const { data, error } = await supabase
-            .from("usuarios")
-            .select("*")
-            .eq("id", id)
-            .single(); // retorna apenas um item
-        if (error) {
-            return res.status(404).json({ error: "Usuário não encontrado" });
+        catch (err) {
+            console.error('Erro ao criar usuário:', err);
+            return res.status(400).json({ error: err.message });
         }
-        res.status(200).json(data);
     }
-    static async criarUsuario(req, res) {
-        const { nome, email } = req.body;
-        const { data, error } = await supabase
-            .from("usuarios")
-            .insert([{ nome, email }]) //Rows do banco
-            .select("*");
-        if (error)
-            return res.status(500).json({ error: error.message });
-        res.status(201).json(data);
-    }
-    static async atualizarUsuario(req, res) {
-        const id = Number(req.params.id);
-        const { nome, email } = req.body;
-        const { data, error } = await supabase
-            .from("usuarios")
-            .update({ nome, email })
-            .eq("id", id)
-            .select("*");
-        if (error)
-            return res.status(500).json({ error: error.message });
-        res.status(200).json(data);
-    }
-    static async deletarUsuario(req, res) {
-        const id = Number(req.params.id);
-        const { data, error } = await supabase
-            .from("usuarios")
-            .delete()
-            .eq("id", id)
-            .select("*");
-        if (error)
-            return res.status(500).json({ error: error.message });
-        if (!data || data.length === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado" });
+    async loginUsuario(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const { email, senha } = req.body;
+            if (!email || !senha) {
+                return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
+            }
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password: senha,
+            });
+            if (error)
+                throw error;
+            return res.status(200).json({ message: "Login bem-sucedido", ...data });
         }
-        res.status(200).json({ message: "Usuário removido", usuario: data[0] });
+        catch (err) {
+            console.error('Erro ao fazer login:', err);
+            return res.status(401).json({ error: err.message });
+        }
+    }
+    async listarUsuarios(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const { data: { users }, error } = await supabase.auth.admin.listUsers();
+            if (error)
+                throw error;
+            return res.status(200).json(users);
+        }
+        catch (err) {
+            console.error('Erro ao listar usuários:', err);
+            return res.status(500).json({ error: err.message });
+        }
+    }
+    async buscarPorId(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const userIdToFind = req.params.id;
+            const { data: { user }, error } = await supabase.auth.admin.getUserById(userIdToFind);
+            if (error)
+                throw error;
+            if (!user)
+                return res.status(404).json({ error: "Usuário não encontrado." });
+            return res.status(200).json(user);
+        }
+        catch (err) {
+            console.error(`Erro ao buscar usuário ${req.params.id}:`, err);
+            return res.status(500).json({ error: 'Erro interno do servidor.' });
+        }
+    }
+    async atualizarUsuario(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const { nome, email } = req.body;
+            const { data, error } = await supabase.auth.updateUser({
+                email: email,
+                data: { nome_completo: nome }
+            });
+            if (error)
+                throw error;
+            return res.status(200).json(data);
+        }
+        catch (err) {
+            console.error('Erro ao atualizar usuário:', err);
+            return res.status(500).json({ error: 'Erro interno do servidor.' });
+        }
+    }
+    async deletarUsuario(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const { id } = req.params;
+            const { error } = await supabase.auth.admin.deleteUser(id);
+            if (error)
+                throw error;
+            return res.status(204).send();
+        }
+        catch (err) {
+            console.error('Erro ao deletar usuário:', err);
+            return res.status(500).json({ error: err.message });
+        }
     }
 }
-export default UsuarioController;

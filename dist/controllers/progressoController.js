@@ -1,61 +1,116 @@
-import { supabase } from "../supabaseClient.js";
-class ProgressoController {
-    static async listarProgresso(req, res) {
-        const { data, error } = await supabase
-            .from("progresso")
-            .select("*");
-        if (error)
-            return res.status(500).json({ error: error.message });
-        const progresso = data;
-        res.status(200).json(progresso);
+import { getSupabaseClient } from '../config/supabase.js';
+export class ProgressoController {
+    async listarProgressoGeral(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const userId = req.user.id;
+            const { data, error } = await supabase
+                .from("progresso")
+                .select("*, tarefas ( titulo )") // Puxa o título da tarefa junto
+                .eq("user_id", userId)
+                .order('created_at', { ascending: false }); // Mais recentes primeiro
+            if (error)
+                throw error;
+            return res.status(200).json(data);
+        }
+        catch (err) {
+            console.error('Erro ao listar progresso geral:', err);
+            return res.status(500).json({ error: 'Erro interno do servidor.' });
+        }
     }
-    static async buscarPorId(req, res) {
-        const id = Number(req.params.id);
-        const { data, error } = await supabase
-            .from("progresso")
-            .select("*")
-            .eq("id", id)
-            .single();
-        if (error || !data)
-            return res.status(404).json({ error: "Progresso não encontrado" });
-        res.status(200).json(data);
+    async listarProgressoPorTarefa(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const userId = req.user.id;
+            const tarefaId = Number(req.params.tarefaId);
+            if (!tarefaId) {
+                return res.status(400).json({ error: 'O ID da tarefa é obrigatório.' });
+            }
+            const { data, error } = await supabase
+                .from("progresso")
+                .select("*")
+                .eq("user_id", userId)
+                .eq("tarefa_id", tarefaId)
+                .order('created_at', { ascending: false });
+            if (error)
+                throw error;
+            return res.status(200).json(data);
+        }
+        catch (err) {
+            console.error(`Erro ao listar progresso da tarefa ${req.params.tarefaId}:`, err);
+            return res.status(500).json({ error: 'Erro interno do servidor.' });
+        }
     }
-    static async criarProgresso(req, res) {
-        const { usuarioId, tarefaId, status } = req.body; // Campos do modelo
-        const { data, error } = await supabase
-            .from("progresso")
-            .insert([{ usuarioId, tarefaId, status }])
-            .select("*"); // Retorna o row criado
-        if (error)
-            return res.status(500).json({ error: error.message });
-        res.status(201).json(data);
+    async buscarProgressoPorId(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const userId = req.user.id;
+            const progressoId = Number(req.params.id);
+            const { data, error } = await supabase
+                .from("progresso")
+                .select("*")
+                .eq("id", progressoId)
+                .eq("user_id", userId)
+                .single();
+            if (error)
+                throw error;
+            if (!data)
+                return res.status(404).json({ error: "Registro de progresso não encontrado." });
+            return res.status(200).json(data);
+        }
+        catch (err) {
+            console.error(`Erro ao buscar progresso ${req.params.id}:`, err);
+            return res.status(500).json({ error: 'Erro interno do servidor.' });
+        }
     }
-    static async atualizarProgresso(req, res) {
-        const id = Number(req.params.id);
-        const { usuarioId, tarefaId, status } = req.body;
-        const { data, error } = await supabase
-            .from("progresso")
-            .update({ usuarioId, tarefaId, status })
-            .eq("id", id)
-            .select("*"); // Retorna o row atualizado
-        if (error)
-            return res.status(500).json({ error: error.message });
-        if (!data || data.length === 0)
-            return res.status(404).json({ message: "Progresso não encontrado" });
-        res.status(200).json(data);
+    async criarRegistroProgresso(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const userId = req.user.id;
+            const { tarefa_id, status_novo, status_anterior, duracao_minutos, notas } = req.body;
+            if (!tarefa_id || !status_novo) {
+                return res.status(400).json({ error: 'ID da tarefa e novo status são obrigatórios.' });
+            }
+            const { data, error } = await supabase
+                .from("progresso")
+                .insert({
+                tarefa_id,
+                status_novo,
+                status_anterior,
+                duracao_minutos,
+                notas,
+                user_id: userId
+            })
+                .select()
+                .single();
+            if (error)
+                throw error;
+            return res.status(201).json(data);
+        }
+        catch (err) {
+            console.error('Erro ao criar registro de progresso:', err);
+            return res.status(500).json({ error: 'Erro interno do servidor.' });
+        }
     }
-    static async deletarProgresso(req, res) {
-        const id = Number(req.params.id);
-        const { data, error } = await supabase
-            .from("progresso")
-            .delete()
-            .eq("id", id)
-            .select("*"); // Retorna o row deletado
-        if (error)
-            return res.status(500).json({ error: error.message });
-        if (!data || data.length === 0)
-            return res.status(404).json({ message: "Progresso não encontrado" });
-        res.status(200).json({ message: "Progresso removido", progresso: data[0] });
+    async deletarRegistroProgresso(req, res) {
+        try {
+            const supabase = getSupabaseClient();
+            const userId = req.user.id;
+            const progressoId = Number(req.params.id);
+            const { error, count } = await supabase
+                .from("progresso")
+                .delete({ count: 'exact' })
+                .eq("id", progressoId)
+                .eq("user_id", userId);
+            if (error)
+                throw error;
+            if (count === 0)
+                return res.status(404).json({ message: "Registro de progresso não encontrado ou não pertence a você." });
+            return res.status(204).send();
+        }
+        catch (err) {
+            console.error(`Erro ao deletar registro de progresso ${req.params.id}:`, err);
+            return res.status(500).json({ error: 'Erro interno do servidor.' });
+        }
     }
 }
-export default ProgressoController;

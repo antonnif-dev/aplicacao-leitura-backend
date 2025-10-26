@@ -102,18 +102,32 @@ export class TarefaController {
       const supabase = getSupabaseClient();
       const userId = req.user.id;
       const taskId = Number(req.params.id);
-      // Adiciona 'prazo' e 'status'
       const { titulo, descricao, materiaId, prazo, status } = req.body;
 
-      const dadosUpdate = { titulo, descricao, materiaId, prazo, status };
+      // Define o tipo explicitamente para ajudar o TypeScript
+      const dadosUpdate: {
+        titulo?: string;
+        descricao?: string | null;
+        materiaId?: number;
+        prazo?: string | null;
+        status?: 'pendente' | 'em andamento' | 'concluida';
+      } = { titulo, descricao, materiaId, prazo, status };
 
       // Remove campos undefined para não sobrescrever com null no banco
-      Object.keys(dadosUpdate).forEach(key => dadosUpdate[key] === undefined && delete dadosUpdate[key]);
+      (Object.keys(dadosUpdate) as Array<keyof typeof dadosUpdate>).forEach((key) => {
+        if (dadosUpdate[key] === undefined) {
+          delete dadosUpdate[key];
+        }
+      });
 
+      // Verifica se sobrou alguma chave para atualizar
+      if (Object.keys(dadosUpdate).length === 0) {
+        return res.status(400).json({ error: 'Nenhum dado válido para atualizar foi fornecido.' });
+      }
 
       const { data, error } = await supabase
         .from("tarefas")
-        .update(dadosUpdate)
+        .update(dadosUpdate) // Agora passa o objeto limpo
         .eq("id", taskId)
         .eq("user_id", userId)
         .select()
